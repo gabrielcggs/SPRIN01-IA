@@ -1,12 +1,8 @@
-from services.classification_service import ClassificationService
+from chatbot import resposta_local
 
 
-def test_classification():
+def test_resposta_local_custo():
+    resposta = resposta_local("Quanto gastei este mes em recarga?")
 
-    service = ClassificationService()
-
-    result = service.classify(
-        "Qual o custo da recarga?"
-    )
-
-    assert result == "billing"
+    assert "847" in resposta
+    assert "753,83" in resposta

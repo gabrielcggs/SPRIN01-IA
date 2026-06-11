@@ -1,14 +1,14 @@
-from chatbot.context_manager import ContextManager
+from chatbot import ConversationManager
 
 
-def test_context():
+def test_historico_mantem_contexto():
+    manager = ConversationManager(max_turns=1)
 
-    manager = ContextManager()
+    manager.add_user_message("Qual carregador esta livre?")
+    manager.add_assistant_message("CG-01 e CG-04 estao disponiveis.")
 
-    context = manager.build_context(
-        "teste",
-        "general",
-        []
-    )
+    historico = manager.get_messages()
 
-    assert "teste" in context
+    assert len(historico) == 2
+    assert historico[0]["role"] == "user"
+    assert historico[1]["role"] == "assistant"

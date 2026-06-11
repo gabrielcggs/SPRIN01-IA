@@ -1,10 +1,9 @@
-from chatbot.response_generator import ResponseGenerator
+from chatbot import resposta_local
 
 
-def test_response():
+def test_resposta_local_sobrecarga():
+    resposta = resposta_local("Existe sobrecarga energetica agora no condominio?")
 
-    generator = ResponseGenerator()
-
-    response = generator.generate("Teste")
-
-    assert "Teste" in response
+    assert "38 kW" in resposta
+    assert "50 kW" in resposta
+    assert "Nao existe sobrecarga" in resposta
