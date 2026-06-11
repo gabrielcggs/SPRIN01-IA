@@ -74,6 +74,11 @@ Tambem existe uma versao para Google Colab em:
 ```text
 notebooks/chatbot_colab.ipynb
 ```
+## Persona
+
+- Operadores de eletropostos
+- Síndicos
+- Motoristas de veículos elétricos
 
 ## Exemplos de uso
 
