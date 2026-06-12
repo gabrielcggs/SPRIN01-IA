@@ -16,6 +16,12 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
 MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "10"))
+ENABLE_FALLBACK = os.getenv("ENABLE_FALLBACK", "true").lower() == "true"
+
+# Debug para mostrar configuração
+print(f"[DEBUG] LLM_PROVIDER: {LLM_PROVIDER}")
+print(f"[DEBUG] GOOGLE_API_KEY configurada: {bool(GOOGLE_API_KEY)}")
+print(f"[DEBUG] OPENAI_API_KEY configurada: {bool(OPENAI_API_KEY)}")
 
 
 def resposta_local(pergunta):
@@ -169,32 +175,54 @@ class LLMService:
         self._validate_config()
     
     def _validate_config(self):
-        if self.provider == "gemini":
-            if not GOOGLE_API_KEY or len(GOOGLE_API_KEY) < 20:
-                raise Exception(
-                    "GOOGLE_API_KEY não configurada no .env.\n\n"
-                    "1. Acesse https://aistudio.google.com/apikey\n"
-                    "2. Crie uma chave API\n"
-                    "3. Cole no .env: GOOGLE_API_KEY=AIza...\n"
-                    "4. Reinicie o programa"
-                )
-        elif self.provider == "openai":
-            if not OPENAI_API_KEY or len(OPENAI_API_KEY) < 20:
-                raise Exception("OPENAI_API_KEY não configurada no .env.")
-        else:
+        # Validação mais flexível - pelo menos uma chave deve estar configurada
+        has_gemini = bool(GOOGLE_API_KEY and len(GOOGLE_API_KEY) >= 20)
+        has_openai = bool(OPENAI_API_KEY and len(OPENAI_API_KEY) >= 20)
+        
+        if not has_gemini and not has_openai:
+            raise Exception(
+                "Nenhuma chave API configurada no .env.\n\n"
+                "Configure pelo menos uma das chaves:\n"
+                "- GOOGLE_API_KEY (para Gemini)\n"
+                "- OPENAI_API_KEY (para OpenAI)\n"
+            )
+        
+        if self.provider not in ["gemini", "openai"]:
             raise Exception(f"LLM_PROVIDER inválido: {self.provider}. Use 'gemini' ou 'openai'.")
+        
+        # Avisa se o provedor principal não tem chave configurada
+        if self.provider == "gemini" and not has_gemini:
+            print("[AVISO] GOOGLE_API_KEY não configurada, usando fallback para OpenAI se disponível")
+        elif self.provider == "openai" and not has_openai:
+            print("[AVISO] OPENAI_API_KEY não configurada, usando fallback para Gemini se disponível")
     
     def generate_response(self, user_message, history=None):
         history = history or []
+        
+        # Tenta o provedor principal
         try:
             if self.provider == "gemini":
                 return self._generate_gemini(user_message, history)
             return self._generate_openai(user_message, history)
         except Exception as exc:
+            # Se fallback estiver habilitado, tenta o outro provedor
+            if ENABLE_FALLBACK:
+                print(f"[DEBUG] Erro com {self.provider}, tentando fallback...")
+                try:
+                    if self.provider == "gemini" and OPENAI_API_KEY:
+                        return self._generate_openai(user_message, history)
+                    elif self.provider == "openai" and GOOGLE_API_KEY:
+                        return self._generate_gemini(user_message, history)
+                except Exception as fallback_exc:
+                    print(f"[DEBUG] Fallback também falhou: {fallback_exc}")
+            
             return self._format_error(exc)
 
     def _format_error(self, exc):
         erro = str(exc)
+        # Mostra o erro original para diagnóstico
+        print(f"[DEBUG] Erro original da API: {erro}")
+        
         if "503" in erro or "UNAVAILABLE" in erro or "high demand" in erro:
             return (
                 "Erro da API Gemini: modelo indisponivel no momento por alta demanda. "
